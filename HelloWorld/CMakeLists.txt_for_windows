@@ -7,6 +7,28 @@
 cmake_minimum_required(VERSION 3.13.4)
 project(llvm-tutor-hello-world)
 
+function(add_portable_llvm_plugin plugin_target_name)
+  set(extraArgs)
+  if (WIN32 OR CYGWIN)
+    configure_file(
+      ${CMAKE_SOURCE_DIR}/cmake/windows-llvm-plugin.def.in
+      ${plugin_target_name}.def)
+    set(extraArgs ${CMAKE_CURRENT_BINARY_DIR}/${plugin_target_name}.def)
+  endif()
+
+  add_llvm_pass_plugin(${plugin_target_name} 
+    ${extraArgs}
+    ${ARGN})
+  set_target_properties(${plugin_target_name}
+    PROPERTIES
+      CXX_STANDARD 17
+      CXX_STANDARD_REQUIRED ON)
+  if (MSVC)
+    target_compile_definitions(${plugin_target_name} 
+      PUBLIC _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
+  endif()
+endfunction()
+
 #===============================================================================
 # 1. LOAD LLVM CONFIGURATION
 #===============================================================================
@@ -41,16 +63,18 @@ endif()
 # 3. ADD THE TARGET
 #===============================================================================
 # The following configuration is based on:
-#   https://github.com/llvm/llvm-project/blob/release/10.x/llvm/lib/Transforms/Hello/CMakeLists.txt
+#   https://github.com/llvm/llvm-project/blob/release/11.x/llvm/lib/Transforms/Hello/CMakeLists.txt
 if(WIN32 OR CYGWIN)
   set(LLVM_LINK_COMPONENTS Core Support)
 endif()
 
-add_llvm_library( HelloWorld MODULE BUILDTREE_ONLY
+add_portable_llvm_plugin(HelloWorld
   HelloWorld.cpp
-
+  
   DEPENDS
   intrinsics_gen
+  LINK_LIBS
+  support
   PLUGIN_TOOL
   opt
-  )
+)
