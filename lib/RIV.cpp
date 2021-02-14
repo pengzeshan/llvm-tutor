@@ -34,6 +34,7 @@
 //=============================================================================
 #include "RIV.h"
 
+#include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/Format.h"
@@ -217,6 +218,7 @@ static void printRIVResult(raw_ostream &OutS, const RIV::Result &RIVMap) {
     raw_string_ostream BBIdStream(DummyStr);
     KV.first->printAsOperand(BBIdStream, false);
     OutS << format("BB %-12s %-30s\n", BBIdStream.str().c_str(), EmptyStr);
+
     for (auto const *IntegerValue : KV.second) {
       std::string DummyStr;
       raw_string_ostream InstrStr(DummyStr);

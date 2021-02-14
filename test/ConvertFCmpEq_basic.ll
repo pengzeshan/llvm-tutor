@@ -3,6 +3,9 @@
 ; RUN: opt -load-pass-plugin=%shlibdir/libFindFCmpEq%shlibext  -load-pass-plugin=%shlibdir/libConvertFCmpEq%shlibext --passes=convert-fcmp-eq  -S %s \
 ; RUN:  | FileCheck %s
 
+; Verify the output from ConvertFCmpEq for all the supported comparison
+; conditions
+
 define i32 @fcmp_oeq(double %a, double %b) {
 ; CHECK-LABEL: @fcmp_oeq
 ; CHECK-DAG: %1 = fsub double %a, %b

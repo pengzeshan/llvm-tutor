@@ -28,6 +28,7 @@
 // License: MIT
 //=============================================================================
 #include "ConvertFCmpEq.h"
+
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/Statistic.h"
@@ -46,6 +47,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+
 #include <cassert>
 
 using namespace llvm;
@@ -89,16 +91,18 @@ FCmpInst *convertFCmpEqInstruction(FCmpInst *FCmp) noexcept {
   IntegerType *I64Ty = IntegerType::get(Ctx, 64);
   Type *DoubleTy = Type::getDoubleTy(Ctx);
 
-  // Define the sign-mask and double-precision machine epsilon constants.
+  // Define the sign-mask constant.
   ConstantInt *SignMask = ConstantInt::get(I64Ty, ~(1L << 63));
-  // The machine epsilon value for IEEE 754 double-precision values is 2 ^ -52
-  // or (b / 2) * b ^ -(p - 1) where b (base) = 2 and p (precision) = 53.
+
+  // Define the double-precision machine epsilon constant. The machine epsilon
+  // value for IEEE 754 double-precision values is 2 ^ -52 or (b / 2) * b ^ -(p
+  // - 1) where b (base) = 2 and p (precision) = 53.
   APInt EpsilonBits(64, 0x3CB0000000000000);
   Constant *EpsilonValue =
       ConstantFP::get(DoubleTy, EpsilonBits.bitsToDouble());
 
   // Create an IRBuilder with an insertion point set to the given fcmp
-  // instruction.
+  // instruction (new instructions are added before FCmp).
   IRBuilder<> Builder(FCmp);
   // Create the subtraction, casting, absolute value, and new comparison
   // instructions one at a time.
@@ -116,6 +120,7 @@ FCmpInst *convertFCmpEqInstruction(FCmpInst *FCmp) noexcept {
   FCmp->setPredicate(CmpPred);
   FCmp->setOperand(0, CastToDouble);
   FCmp->setOperand(1, EpsilonValue);
+
   return FCmp;
 }
 
@@ -143,18 +148,19 @@ PreservedAnalyses ConvertFCmpEq::run(Function &Func,
 bool ConvertFCmpEq::run(llvm::Function &Func,
                         const FindFCmpEq::Result &Comparisons) {
   bool Modified = false;
+
   // Functions marked explicitly 'optnone' should be ignored since we shouldn't
   // be changing anything in them anyway.
   if (Func.hasFnAttribute(Attribute::OptimizeNone)) {
     LLVM_DEBUG(dbgs() << "Ignoring optnone-marked function \"" << Func.getName()
                       << "\"\n");
-    Modified = false;
-  } else {
-    for (FCmpInst *FCmp : Comparisons) {
-      if (convertFCmpEqInstruction(FCmp)) {
-        ++FCmpEqConversionCount;
-        Modified = true;
-      }
+    return Modified;
+  }
+
+  for (FCmpInst *FCmp : Comparisons) {
+    if (convertFCmpEqInstruction(FCmp)) {
+      ++FCmpEqConversionCount;
+      Modified = true;
     }
   }
 
@@ -206,7 +212,6 @@ llvmGetPassPluginInfo() {
 //-----------------------------------------------------------------------------
 // Legacy PM Registration
 //-----------------------------------------------------------------------------
-
 char ConvertFCmpEqWrapper::ID = 0;
 
 static RegisterPass<ConvertFCmpEqWrapper> X(/*PassArg=*/PassArg,
